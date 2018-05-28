@@ -1,0 +1,54 @@
+
+#!/bin/bash
+
+echo "starting backup process"
+
+USER="root"
+PASSWORD="pass"
+TEMP_DB_DIR="/tmp/bkp/db"
+TEMP_FILES_DIR="/tmp/bkp/"
+WEBSITES_ROOT="/var/www/html/"
+$RSYNC_DESTINATION="user@blah.example.com:/bkp/"
+
+echo "cleaning previous backup data"
+
+# remove previous data
+rm -rf $TEMP_FILES_DIR*
+
+# recreate db dir
+mkdir $TEMP_FILES_DIR'db'
+
+# get a list of datbases
+databases=`mysql -u $USER -p$PASSWORD -e "SHOW DATABASES;" | tr -d "| " | grep -v Database`
+
+echo "found databases " $databases
+
+# iterate and zip all databases
+for db in $databases; do
+    if [[ "$db" != "information_schema" ]] && [[ "$db" != "performance_schema" ]] && [[ "$db" != "mysql" ]] && [[ "$db" != _* ]] ; then
+        echo "Dumping database: $db"
+        mysqldump -u $USER -p$PASSWORD --databases $db > $TEMP_DB_DIR/`date +%Y%m%d`.$db.sql
+	echo "Dumping database: $db"
+        zip $TEMP_DB_DIR/`date +%Y%m%d`.$db.zip $TEMP_DB_DIR/`date +%Y%m%d`.$db.sql
+    fi
+done
+
+#delete .sql files
+rm -rf $TEMP_DB_DIR/*.sql
+
+echo "backing up files"
+
+# backup files
+
+websites=`ls $WEBSITES_ROOT | grep ''`
+
+# iterate
+for dir in $websites; do
+    echo "compressing: %dir"
+    zip -r $TEMP_FILES_DIR`date +%Y%m%d`.$dir.zip $WEBSITES_ROOT$dir
+done
+
+echo "Transferring to backup server "
+
+rsync -avz $TEMP_FILES_DIR $RSYNC_DESTINATION
+
