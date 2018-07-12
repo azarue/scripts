@@ -1,0 +1,4 @@
+ssh-keygen -f id_rsa -t rsa -N '' -b 2048
+ssh-copy-id [User]@[IPAddr]
+ssh [User]@[IPAddr]
+#sudo tail -n1 .ssh/authorized_keys >> [Path]
