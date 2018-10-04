@@ -8,7 +8,7 @@ PASSWORD="pass"
 TEMP_DB_DIR="/tmp/bkp/db"
 TEMP_FILES_DIR="/tmp/bkp/"
 WEBSITES_ROOT="/var/www/html/"
-$RSYNC_DESTINATION="user@blah.example.com:/bkp/"
+RSYNC_DESTINATION="user@blah.example.com:/bkp/"
 
 echo "cleaning previous backup data"
 
@@ -16,6 +16,7 @@ echo "cleaning previous backup data"
 rm -rf $TEMP_FILES_DIR*
 
 # recreate db dir
+mkdir $TEMP_FILES_DIR
 mkdir $TEMP_FILES_DIR'db'
 
 # get a list of datbases
