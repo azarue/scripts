@@ -1,0 +1,4 @@
+CREATE CA:
+"C:\Program Files\Microsoft SDKs\Windows\v6.0A\bin\makecert.exe" -n "CN=ActualTech_Root,O=ActaulTech" -pe -ss Root -sr LocalMachine -sky exchange -m 120 -a sha1 -len 2048 -r
+CREATE ENTITY IN CA WITH "SERVER AUTHENTICATION" CREDENTIAL:
+"C:\Program Files\Microsoft SDKs\Windows\v6.0A\bin\makecert.exe" -n "CN=*.boxsyst.com" -pe -ss My -sr LocalMachine -sky exchange -m 120 -in "ActualTech_Root" -is Root -ir LocalMachine -a sha1 -eku 1.3.6.1.5.5.7.3.1

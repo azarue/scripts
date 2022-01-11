@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <system.webServer>
+       <rewrite>
+  <rules>
+    <rule name="BR_Stage_Inbound" enabled="true" patternSyntax="Wildcard" stopProcessing="true">
+      <match url="*" />
+      <conditions>
+      </conditions>
+      <action type="Rewrite" url="http://vflstaging.betradar.com/{R:0}" appendQueryString="true" />
+                    <serverVariables>
+                        <set name="HTTP_ACCEPT_ENCODING" value="" />
+                    </serverVariables>
+    </rule>
+  </rules>
+  <outboundRules>
+                <rule name="Tags" preCondition="IsHtml" enabled="false" patternSyntax="Wildcard">
+                    <match filterByTags="A, Img" pattern="*stats.betradar.com/s4/svg2.php*" />
+                    <action type="Rewrite" value="svg2.php" />
+                </rule>
+    
+    <preConditions>
+      <preCondition name="IsHtml">
+        <add input="{RESPONSE_CONTENT_TYPE}" pattern="^text/html" />
+      </preCondition>
+    </preConditions>
+  </outboundRules>
+</rewrite> 
+        <urlCompression doStaticCompression="false" />
+        <httpProtocol>
+            <customHeaders>
+                <add name="Access-Control-Allow-Origin" value="*" />
+            </customHeaders>
+        </httpProtocol>
+    </system.webServer>
+</configuration>
