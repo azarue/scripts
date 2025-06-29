@@ -1,0 +1,162 @@
+# ---------------------------------------------------------------------
+# Complete Guide: Add New Sending Domain to Postfix SMTP Server
+# ---------------------------------------------------------------------
+
+# This guide sets up a new sending domain with:
+# - TLS for STARTTLS support (via SNI)
+# - DKIM signing using OpenDKIM with selector "mail"
+# - SASL authentication for SMTP login
+
+# -------------------------
+# PLACEHOLDER VALUES TO REPLACE:
+# -------------------------
+# DOMAIN         → yourdomain.com
+# SUBDOMAIN      → smtp.yourdomain.com
+# SELECTOR       → mail
+# USERNAME       → user@yourdomain.com
+# KEYFILE        → /etc/ssl/private/star_yourdomain_com.key
+# CERTFILE       → /etc/ssl/certs/star.yourdomain.com.crt
+# BUNDLEFILE     → /etc/ssl/certs/ca-bundle.crt
+# PEMFILE        → /etc/postfix/ssl/star_yourdomain_com.pem
+
+# -----------------------
+# 1. Combine Certificate Files for TLS
+# -----------------------
+
+cat KEYFILE CERTFILE BUNDLEFILE > PEMFILE
+
+# Example:
+# cat star_yourdomain_com.key star.yourdomain.com.crt ca-bundle.crt > /etc/postfix/ssl/star_yourdomain_com.pem
+
+chmod 600 PEMFILE
+chown root:root PEMFILE
+
+# -------------------------
+# 2. Add TLS SNI Mapping Entry
+# -------------------------
+
+nano /etc/postfix/tls_sni_map.cf
+
+# Add:
+SUBDOMAIN PEMFILE
+
+# Example:
+# smtp.yourdomain.com /etc/postfix/ssl/star_yourdomain_com.pem
+
+# Save and exit, then compile the map:
+postmap -F hash:/etc/postfix/tls_sni_map.cf
+
+# -------------------------
+# 3. Generate DKIM Key (Selector: mail)
+# -------------------------
+
+mkdir -p /etc/opendkim/keys/DOMAIN
+cd /etc/opendkim/keys/DOMAIN
+
+opendkim-genkey -s mail -d DOMAIN
+
+# This creates:
+#   mail.private  ← private key
+#   mail.txt      ← public DNS record
+
+chown opendkim:opendkim mail.private
+chmod 600 mail.private
+
+# -------------------------
+# 4. Configure OpenDKIM
+# -------------------------
+
+nano /etc/opendkim/KeyTable
+
+# Add:
+mail._domainkey.DOMAIN DOMAIN:mail:/etc/opendkim/keys/DOMAIN/mail.private
+
+nano /etc/opendkim/SigningTable
+
+# Add:
+*@DOMAIN mail._domainkey.DOMAIN
+
+nano /etc/opendkim/TrustedHosts
+
+# Add:
+127.0.0.1
+::1
+localhost
+DOMAIN
+
+# Ensure these lines exist in /etc/opendkim.conf:
+# KeyTable           /etc/opendkim/KeyTable
+# SigningTable       refile:/etc/opendkim/SigningTable
+# ExternalIgnoreList /etc/opendkim/TrustedHosts
+# InternalHosts      /etc/opendkim/TrustedHosts
+# Mode               sv
+# Socket             inet:12301@localhost
+
+# -------------------------
+# 5. Publish DKIM Record in DNS
+# -------------------------
+
+# Open /etc/opendkim/keys/DOMAIN/mail.txt
+# Add the TXT record to your DNS provider as:
+
+# Name: mail._domainkey.DOMAIN
+# Type: TXT
+# Value: (paste contents from mail.txt, excluding the comment at the top)
+
+# -------------------------
+# 6. Add SASL Authenticated User
+# -------------------------
+
+saslpasswd2 USERNAME
+
+# Example:
+# saslpasswd2 user@yourdomain.com
+
+sasldblistusers2  # Confirm user added
+
+# -------------------------
+# 7. Reload Services
+# -------------------------
+
+systemctl restart opendkim
+systemctl reload postfix
+
+# -------------------------
+# 8. Test SMTP Authentication and DKIM
+# -------------------------
+
+# Send a test email using swaks:
+swaks --to test@example.com \
+      --from USERNAME \
+      --server SUBDOMAIN \
+      --auth \
+      --auth-user USERNAME \
+      --auth-password 'yourpassword' \
+      --tls
+
+# You should see:
+# 250 2.0.0 Ok: queued
+
+# Also verify the DKIM header is added:
+# tail -n 50 /var/log/mail.log
+
+# -------------------------
+# 9. (Optional) Verify DNS Records
+# -------------------------
+
+# Check DKIM:
+dig +short TXT mail._domainkey.DOMAIN
+
+# Check SPF:
+dig +short TXT DOMAIN
+
+# Check PTR:
+dig -x YOUR_SERVER_IP
+
+# -------------------------
+# Done!
+# -------------------------
+
+# DOMAIN is now fully configured as a secure, authenticated sending domain.
+# You can repeat this process for any additional domains by updating the
+# placeholders.
